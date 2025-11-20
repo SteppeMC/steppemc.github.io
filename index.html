@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SteppeMC - Bedwars 2025</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        /* --- GLOBAL FONT SETTINGS --- */
+        :root {
+            --mc-green: #4ade80;
+            --mc-dark: #1a1a1a;
+        }
+        
+        body, h1, h2, h3, h4, h5, h6, p, a, button, span, div, input, li {
+            font-family: 'VT323', monospace !important;
+            letter-spacing: 1px;
+        }
+
+        body {
+            font-size: 1.3rem; 
+            background-color: var(--mc-dark);
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        /* --- ANIMATIONS & INTERACTIONS --- */
+        .interactive-element {
+            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            user-select: none;
+        }
+        .interactive-element:hover {
+            filter: brightness(1.2);
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        .interactive-element:active {
+            transform: scale(0.95) translateY(2px);
+            filter: brightness(0.9);
+        }
+
+        .minecraft-btn {
+            image-rendering: pixelated;
+            box-shadow: inset -4px -4px 0px 0px rgba(0,0,0,0.5), inset 4px 4px 0px 0px rgba(255,255,255,0.5);
+            border: 2px solid #000;
+        }
+        .minecraft-btn:active {
+            box-shadow: inset 4px 4px 0px 0px rgba(0,0,0,0.5);
+        }
+
+        /* --- SMOOTH 3 LAYER FLIP BOOK ANIMATION --- */
+        .book-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            perspective: 2000px; /* Tăng chiều sâu để nhìn rõ 3D hơn */
+            cursor: pointer;
+            transform-style: preserve-3d;
+        }
+
+        .book-page {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            transform-origin: left center;
+            /* Mặc định (Lúc đóng): Trang 2 đóng trước (0s), Trang 1 đóng sau (0.2s) để không bị xuyên */
+            transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1); 
+            backface-visibility: hidden;
+            border: 4px solid #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
+            background: #1a1a1a;
+        }
+        
+        /* Trang 1 (Lobby): Đóng sau cùng khi chuột rời đi */
+        .page-1 { 
+            z-index: 3; 
+            transition-delay: 0.15s; /* Đợi trang 2 đóng gần xong mới đóng trang 1 */
+        }
+        
+        /* Trang 2 (Solo): Đóng đầu tiên khi chuột rời đi */
+        .page-2 { 
+            z-index: 2; 
+            transition-delay: 0s;
+        }
+        
+        .page-3 { z-index: 1; } /* Trang cuối nằm im */
+
+        .book-page img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* --- HOVER STATE (Lúc mở) --- */
+        /* Trang 1 lật ngay lập tức */
+        .book-container:hover .page-1 {
+            transform: rotateY(-140deg); /* Góc lật rộng hơn chút cho thoáng */
+            transition-delay: 0s; /* Lật ngay không chờ */
+        }
+
+        /* Trang 2 lật sau trang 1 một chút */
+        .book-container:hover .page-2 {
+            transform: rotateY(-140deg);
+            transition-delay: 0.15s; /* Stagger: Lật sau trang 1 */
+        }
+
+        /* --- OTHER STYLES --- */
+        .bg-dirt {
+            background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png');
+            background-color: #2e2e2e;
+        }
+        .text-shadow {
+            text-shadow: 3px 3px 0px #000;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .float-anim {
+            animation: float 3s ease-in-out infinite;
+        }
+        .float-anim:hover { animation-play-state: paused; }
+
+        #toast {
+            visibility: hidden;
+            min-width: 300px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 0px;
+            padding: 16px;
+            position: fixed;
+            z-index: 9999;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid #4ade80;
+            box-shadow: 4px 4px 0px 0px #000;
+            font-size: 1.5rem;
+        }
+        #toast.show {
+            visibility: visible;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Navbar -->
+    <nav class="bg-gray-900 border-b-4 border-green-600 fixed w-full z-50 top-0 shadow-xl">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 interactive-element" onclick="window.scrollTo(0,0)">
+                        <i class="fas fa-cube text-4xl text-green-500"></i>
+                    </div>
+                    <div class="hidden md:block">
+                        <div class="ml-10 flex items-baseline space-x-4">
+                            <a href="#" class="interactive-element text-white px-4 py-2 rounded hover:bg-gray-700 text-2xl">TRANG CHỦ</a>
+                            <a href="#gameplay" class="interactive-element text-gray-300 px-4 py-2 rounded hover:bg-gray-700 text-2xl">GAMEPLAY</a>
+                            <a href="https://dsc.gg/steppe-family" target="_blank" class="interactive-element text-gray-300 px-4 py-2 rounded hover:bg-gray-700 text-2xl">DISCORD</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-green-500 text-2xl hidden sm:block animate-pulse border-2 border-green-500 px-2 bg-green-900/30">ONLINE 24/7</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="relative bg-gray-800 pt-32 pb-16 sm:pb-24 lg:pb-32 overflow-hidden">
+        <div class="absolute inset-0">
+            <!-- Background Cũ (Generic Unsplash) -->
+            <img class="w-full h-full object-cover opacity-30" src="https://images.unsplash.com/photo-1607853202273-797f1c22a38e?q=80&w=2727&auto=format&fit=crop" alt="Minecraft Bedwars Background">
+            <div class="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
+        </div>
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center">
+            <h1 class="text-5xl tracking-tight text-white sm:text-7xl md:text-8xl text-shadow mb-6 text-yellow-400 mt-5 uppercase">
+                <span class="block xl:inline hover:text-yellow-300 transition duration-300 cursor-default">SteppeMC</span>
+            </h1>
+            <h2 class="mt-3 max-w-md mx-auto text-2xl text-gray-300 sm:text-2xl md:mt-5 md:text-3xl md:max-w-3xl">
+                "CHÚNG TÔI TỰ HÀO MÌNH LÀ SERVER BEDWARS HÀNG ĐẦU VIỆT NAM"
+            </h2>
+            <p class="mt-2 text-xl text-gray-400 italic">(Năm 2026 rồi, uy tín luôn!)</p>
+            
+            <div class="mt-10 max-w-sm mx-auto sm:max-w-none sm:flex sm:justify-center gap-6">
+                <div class="interactive-element minecraft-btn bg-green-600 p-6 rounded select-none" onclick="copyIP()">
+                    <p class="text-white text-3xl font-bold">IP: STEPPE.MCRFT.ASIA</p>
+                    <p class="text-lg text-green-200 mt-1">(BẤM ĐỂ COPY NGAY)</p>
+                </div>
+                <a href="https://dsc.gg/steppe-family" target="_blank" class="interactive-element minecraft-btn bg-purple-600 p-6 rounded select-none float-anim block text-center decoration-none">
+                    <p class="text-white text-3xl font-bold">THAM GIA DISCORD</p>
+                    <p class="text-lg text-purple-200 mt-1">(VÀO GÁY CHO XÔM)</p>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Why Choose Us Section -->
+    <div class="py-12 bg-dirt border-y-4 border-black">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="lg:text-center">
+                <p class="mt-2 text-4xl leading-8 font-extrabold tracking-tight text-white sm:text-5xl text-shadow uppercase">
+                    TẠI SAO CHỌN STEPPEMC?
+                </p>
+                <p class="mt-4 max-w-2xl text-2xl text-gray-400 lg:mx-auto">
+                    BỞI VÌ CÁC SERVER KHÁC LAG LÒI MẮT, CÒN Ở ĐÂY CHÚNG TÔI LAG... ÍT HƠN CHÚT XÍU.
+                </p>
+            </div>
+
+            <div class="mt-12">
+                <dl class="space-y-10 md:space-y-0 md:grid md:grid-cols-3 md:gap-x-8 md:gap-y-10">
+                    <div class="relative bg-gray-800 p-6 rounded border-2 border-gray-700 hover:border-yellow-500 interactive-element">
+                        <dt>
+                            <div class="absolute flex items-center justify-center h-12 w-12 rounded bg-red-500 text-white text-2xl border-2 border-white">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <p class="ml-16 text-3xl leading-6 font-medium text-white text-yellow-400 uppercase">THUẦN VIỆT 100%</p>
+                        </dt>
+                        <dd class="mt-2 ml-16 text-xl text-gray-400">
+                            KHÔNG CẦN GOOGLE DỊCH. TỪ PLUGIN ĐẾN CHAT, TẤT CẢ ĐỀU TIẾNG VIỆT.
+                        </dd>
+                    </div>
+                    <div class="relative bg-gray-800 p-6 rounded border-2 border-gray-700 hover:border-blue-500 interactive-element">
+                        <dt>
+                            <div class="absolute flex items-center justify-center h-12 w-12 rounded bg-blue-500 text-white text-2xl border-2 border-white">
+                                <i class="fas fa-user-shield"></i>
+                            </div>
+                            <p class="ml-16 text-3xl leading-6 font-medium text-white text-blue-400 uppercase">POLICE CHẠY BẰNG CƠM</p>
+                        </dt>
+                        <dd class="mt-2 ml-16 text-xl text-gray-400">
+                            ĐỘI NGŨ ADMIN/POLICE ONLINE 24/7. BAN THẲNG TAY HACKER LỎ.
+                        </dd>
+                    </div>
+                    <div class="relative bg-gray-800 p-6 rounded border-2 border-gray-700 hover:border-green-500 interactive-element">
+                        <dt>
+                            <div class="absolute flex items-center justify-center h-12 w-12 rounded bg-green-500 text-white text-2xl border-2 border-white">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <p class="ml-16 text-3xl leading-6 font-medium text-white text-green-400 uppercase">CỘNG ĐỒNG SIÊU TO</p>
+                        </dt>
+                        <dd class="mt-2 ml-16 text-xl text-gray-400">
+                            ĐÔNG VUI NHƯ HỘI CHỢ. DISCORD LÚC NÀO CŨNG XÔM TỤ.
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gameplay Section (Multi-Layer Flip Book) -->
+    <div id="gameplay" class="py-16 bg-gray-900 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center">
+            
+            <!-- Cột Hình Ảnh (Hiệu ứng Lật Sách 3 Trang Mượt Mà) -->
+            <div class="md:w-1/2 mb-8 md:mb-0 w-full">
+                <div class="h-64 md:h-96 w-full interactive-element">
+                    <div class="book-container">
+                        <!-- Trang 1: Lobby (Trên cùng) -->
+                        <div class="book-page page-1">
+                            <img src="https://cdn.discordapp.com/attachments/1377121573961601034/1441045279015964692/2025-11-20_19.40.19.png?ex=69205d7f&is=691f0bff&hm=9105343542553031f70fb692a36931ee6932befbcb2abd793ad79bdafe04d000&" 
+                                 alt="Lobby">
+                        </div>
+                        <!-- Trang 2: Solo (Giữa) -->
+                        <div class="book-page page-2">
+                            <img src="https://media.discordapp.net/attachments/1377121573961601034/1441056956126203956/2025-11-20_20.24.35.png?ex=6920685f&is=691f16df&hm=3a28ae959e5813b9256ab2990c3d15d768214249ae327c8dbd5f91e78dec8721&=&format=webp&quality=lossless&width=1519&height=854" 
+                                 alt="Map Solo">
+                        </div>
+                        <!-- Trang 3: Doubles (Dưới đáy) -->
+                        <div class="book-page page-3">
+                            <img src="https://media.discordapp.net/attachments/1377121573961601034/1441056955690123314/2025-11-20_20.23.24.png?ex=6920685f&is=691f16df&hm=13c06afa002479707a62c9aa9b3636bfe7ea0407c74571202b3f390bc777a0c2&=&format=webp&quality=lossless&width=1519&height=854" 
+                                 alt="Map Doubles">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cột Nội Dung -->
+            <div class="md:w-1/2 md:pl-12">
+                <h2 class="text-5xl font-extrabold text-white mb-4 text-purple-400 text-shadow uppercase animate-pulse">
+                    GAMEPLAY BEDWARS
+                </h2>
+                <p class="text-2xl text-gray-300 mb-6">
+                    BẢO VỆ GIƯỜNG CỦA BẠN BẰNG MỌI GIÁ! LẤY SẮT, VÀNG, KIM CƯƠNG, NGỌC LỤC BẢO ĐỂ NÂNG CẤP ĐỒ. 
+                </p>
+                <ul class="space-y-4 text-xl">
+                    <li class="flex items-start interactive-element p-2 rounded hover:bg-gray-800">
+                        <span class="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded bg-green-500 border-2 border-white">
+                            <i class="fas fa-check text-white text-sm"></i>
+                        </span>
+                        <span class="ml-3 text-gray-400">SOLO, DUO, TRIO, SQUAD - CHẾ ĐỘ NÀO CŨNG CÓ.</span>
+                    </li>
+                    <li class="flex items-start interactive-element p-2 rounded hover:bg-gray-800">
+                        <span class="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded bg-green-500 border-2 border-white">
+                            <i class="fas fa-check text-white text-sm"></i>
+                        </span>
+                        <span class="ml-3 text-gray-400">CẦU ĐƯỜNG BUILD MỎI TAY, PVP TUNG CHUỘT.</span>
+                    </li>
+                    <li class="flex items-start interactive-element p-2 rounded hover:bg-gray-800">
+                        <span class="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded bg-green-500 border-2 border-white">
+                            <i class="fas fa-check text-white text-sm"></i>
+                        </span>
+                        <span class="ml-3 text-gray-400">SHOP ĐỒ ĐA DẠNG, CÂN BẰNG (KHÔNG PAY TO WIN).</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 py-10 border-t-4 border-green-600">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <i class="fas fa-cube text-4xl text-green-500 mb-4 interactive-element"></i>
+            <p class="text-white text-2xl">STEPPEMC © 2025 - 2026</p>
+            <p class="text-gray-500 text-lg mt-2">KHÔNG LIÊN KẾT VỚI MOJANG. LÀM VÌ ĐAM MÊ THÔI.</p>
+            <div class="mt-8 flex justify-center space-x-10">
+                <a href="https://dsc.gg/steppe-family" target="_blank" class="text-gray-400 hover:text-purple-500 interactive-element flex flex-col items-center">
+                    <i class="fab fa-discord text-4xl mb-2"></i>
+                    <span class="text-xl">STEPPE FAMILY</span>
+                </a>
+                <a href="https://www.youtube.com/@MinhKazzMC" target="_blank" class="text-gray-400 hover:text-red-600 interactive-element flex flex-col items-center">
+                    <i class="fab fa-youtube text-4xl mb-2"></i>
+                    <span class="text-xl">MinhKazzMC</span>
+                </a>
+                <!-- Thêm icon YouTube mới theo yêu cầu -->
+                <a href="https://www.youtube.com/@178_D4talful" target="_blank" class="text-gray-400 hover:text-red-600 interactive-element flex flex-col items-center">
+                    <i class="fab fa-youtube text-4xl mb-2"></i>
+                    <span class="text-xl">_Dratalful</span>
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <div id="toast"></div>
+
+    <script>
+        function showToast(message) {
+            const x = document.getElementById("toast");
+            x.innerText = message;
+            x.className = "show";
+            setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+        }
+
+        function copyIP() {
+            const ip = "STEPPE.MCRFT.ASIA";
+            const el = document.createElement('textarea');
+            el.value = ip;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            
+            showToast("ĐÃ COPY IP: " + ip);
+        }
+    </script>
+</body>
+</html>
